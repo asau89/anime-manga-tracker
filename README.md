@@ -1,42 +1,62 @@
-# Retro Anime/Manga Tracker with AI Recommendations
+<div align="center">
+  <h1>🎮 Retro Anime & Manga Tracker OS</h1>
+  <p>
+    <b>A nostalgic 8-bit aesthetic tracking application powered by Local AI.</b>
+  </p>
+  <p>
+    <img src="https://img.shields.io/badge/Vanilla_JS-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black" alt="JavaScript" />
+    <img src="https://img.shields.io/badge/Vite-B73BA5?style=for-the-badge&logo=vite&logoColor=white" alt="Vite" />
+    <img src="https://img.shields.io/badge/Ollama-000000?style=for-the-badge&logo=ollama&logoColor=white" alt="Ollama" />
+  </p>
+</div>
 
-A personal, offline-first anime and manga tracking application featuring a nostalgic 8-bit NES aesthetic, powered by local LLMs via Ollama. 
+---
 
-## Features
-- **Pixel/Retro UI**: A stunning nostalgic interface powered by `NES.css` and custom CRT effects.
-- **Search & Browse**: Discover new titles using the free Jikan API (MyAnimeList unofficial API).
-- **Personal Library**: Keep track of what you are Watching, Completed, or Planning to Watch directly in your browser's local storage.
-- **Detailed Episode Tracker**: See exact episode listings and check them off one by one.
-- **AI Advisor (Local RAG)**: Connects to your local instance of Ollama (default: Qwen) to deliver hallucination-free anime recommendations based on your library and live Jikan API data.
+## 📖 Overview
+**Retro Anime & Manga Tracker OS** is a fully offline-first, browser-based media library crafted with pure Vanilla JavaScript and styled using `NES.css`. It functions as your personal database for Anime and Manga, retrieving real-time statistics and episodes from public APIs, and leverages local LLMs (via Ollama) to give ultra-fast, hallucination-free recommendations.
 
-## Prerequisites
-- Node.js (v18+)
-- [Ollama](https://ollama.com/) running locally.
+## ✨ Features
+- **🕹️ 8-Bit Pixel Aesthetic**: A stunning nostalgic interface featuring CRT scanline effects, pixel fonts, and CSS-driven retro containers.
+- **📚 Dual Library System**: Distinct tracking pipelines for **Anime** (via Jikan API) and **Manga/Manhwa** (via MangaUpdates API).
+- **✅ Detailed Progress Tracking**: Check off individual episodes or chapters. Marking an entire series as "Completed" will intelligently auto-fill your tracker!
+- **🤖 Local AI Advisor (RAG)**: Connects seamlessly to hardware-local LLMs (like `llama3.2:1b` or `qwen2.5`) via Ollama. It dynamically pulls your Top 5 highest-rated shows and feeds them into a custom prompt, delivering instantaneous, highly personalized recommendations as an 8-bit NPC.
+- **🛡️ Privacy-First & Offline**: Your entire library is persisted directly to `window.localStorage`. No cloud accounts, no tracking.
 
-## Setup Instructions
+## 🛠️ Tech Stack
+- **Frontend Core**: HTML5, Vanilla JavaScript, CSS Variables.
+- **Styling UI**: [NES.css](https://nostalgic-css.github.io/NES.css/)
+- **Bundler & Proxy**: [Vite](https://vitejs.dev/) with configured CORS proxies for external APIs.
+- **External Data**: 
+  - [Jikan REST API](https://jikan.moe/) (MyAnimeList unofficial API) for Anime.
+  - [MangaUpdates API](https://api.mangaupdates.com/) for Manga & Manhwa.
+- **AI Integration**: [Ollama](https://ollama.com/) local endpoint (`http://localhost:11434/api/chat`).
 
-1. **Install dependencies**:
-   ```bash
-   npm install
-   ```
+## 🚀 Quick Setup
 
-2. **Start the development server**:
-   ```bash
-   npm run dev
-   ```
+### Prerequisites
+1. **Node.js**: v18 or higher.
+2. **Ollama**: Installed and running locally on your machine.
 
-3. **Set up Ollama**: 
-   Ensure Ollama is running and you have downloaded your preferred Qwen model. Make sure the local server is exposed at `http://localhost:11434`.
-   ```bash
-   ollama pull qwen
-   ollama serve
-   ```
-   *(Note: You can configure the exact model name inside the app settings if you use a specific quantization or parameter size like 9B).*
+### Installation
 
-## Architecture
-The frontend is built with pure Vanilla JavaScript, HTML, and CSS served using Vite.
-- Data persistence is handled via `window.localStorage`.
-- AI Recommendations use **API-driven RAG**: The app dynamically queries the Jikan API for real anime context and feeds it directly to Ollama, ensuring hyper-accurate responses without the need for a vector database.
+1. **Clone and Install**
+```bash
+git clone https://github.com/yourusername/anime-manga-tracker.git
+cd anime-manga-tracker
+npm install
+```
 
-## License
-MIT
+2. **Pull a Local AI Model**
+To use the AI Advisor, pull a lightweight logic model (Recommended: LLaMA-3.2 1B for speed).
+```bash
+ollama pull llama3.2:1b
+```
+
+3. **Start the Dev Server**
+```bash
+npm run dev
+```
+Navigate to `http://localhost:3000` in your browser. Ensure your Ollama client is active in the background for the Advisor to connect!
+
+## 📜 License
+This project is licensed under the MIT License.
