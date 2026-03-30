@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Retro Anime Tracker</title>
+
+  <!-- NES.css framework -->
+  <link href="https://unpkg.com/nes.css@2.3.0/css/nes.min.css" rel="stylesheet" />
+  <!-- Press Start 2P font -->
+  <link href="https://fonts.googleapis.com/css?family=Press+Start+2P" rel="stylesheet">
+
+  <link rel="stylesheet" href="/src/styles/main.css" />
+</head>
+
+<body>
+  <!-- Scanline effect overlay -->
+  <div class="scanlines"></div>
+
+  <div class="app-container">
+    <header class="nes-container with-title is-dark global-header">
+      <p class="title">AnimeTracker OS</p>
+      <div class="nav-brand">
+        <i class="nes-icon is-large star"></i>
+        <h1>AniMind</h1>
+      </div>
+      <nav class="main-nav">
+        <button id="nav-dashboard" class="nes-btn is-primary">Dashboard</button>
+        <button id="nav-browse" class="nes-btn is-success">Browse</button>
+        <button id="nav-library" class="nes-btn is-warning">Library</button>
+        <button id="nav-ai-advisor" class="nes-btn is-error">AI Advisor</button>
+      </nav>
+    </header>
+
+    <main id="app-root" class="page-container glass-panel">
+      <!-- Pages will be injected here by router.js -->
+    </main>
+
+    <footer class="global-footer">
+      <p>Powered by Vite, NES.css, Jikan API, and Qwen</p>
+    </footer>
+  </div>
+
+  <div id="toast-container" class="toast-container"></div>
+  <div id="modal-container"></div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+
+</html>
