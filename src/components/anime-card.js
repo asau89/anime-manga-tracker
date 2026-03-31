@@ -12,11 +12,32 @@ export function createAnimeCard(item, onSelect = null, onAdd = null, isLibraryIt
   const titleText = item.title_english || item.title || 'Unknown Title';
   const image     = item.images?.webp?.image_url || item.image_url
     || 'https://placehold.co/200x280/1a1a3e/00d4ff?text=NO+IMAGE&font=monospace';
-  const score     = item.score ?? '?';
+  
+  const displayScore = (isLibraryItem && item.user_rating > 0) ? item.user_rating : item.score;
+  const scoreStr = displayScore ?? '?';
+  
+  const renderStars = (rating) => {
+    const r = parseFloat(rating);
+    if (isNaN(r)) return `<span>⭐ ?</span>`;
+    const percentage = Math.min(100, Math.max(0, (r / 10) * 100));
+    return `
+      <div style="display:flex; align-items:center;">
+        <div style="display:inline-block; position:relative; color:#333; font-size:11px; line-height:1; letter-spacing:1px; text-shadow: 1px 1px 0px #000;">
+          ★★★★★
+          <div style="position:absolute; top:0; left:0; width:${percentage}%; overflow:hidden; color:#ffb400; white-space:nowrap; text-shadow: 1px 1px 0px #8a6d00;">
+            ★★★★★
+          </div>
+        </div>
+        <span style="margin-left:6px; font-weight:bold; color:var(--pixel-amber);">${r.toFixed(1)}</span>
+      </div>
+    `;
+  };
+
   const mediaType = item.type || (item.media_type === 'manga' ? 'Manga' : 'Anime');
 
   // Status badge (library mode only)
   const userStatus   = item.user_status;
+  const isManga      = item.media_type === 'manga';
   const statusColors = {
     watching:      '#00d4ff',
     completed:     '#00ff41',
@@ -25,12 +46,19 @@ export function createAnimeCard(item, onSelect = null, onAdd = null, isLibraryIt
     dropped:       '#ff2244',
   };
   const badgeColor  = statusColors[userStatus] || '#fff';
+  
+  let badgeText = '';
+  if (userStatus) {
+    if (isManga && userStatus === 'watching') badgeText = 'READING';
+    else if (isManga && userStatus === 'plan_to_watch') badgeText = 'PLAN TO READ';
+    else badgeText = userStatus.replace(/_/g, ' ').toUpperCase();
+  }
+
   const statusBadge = isLibraryItem && userStatus
-    ? `<div class="tracker-badge" style="border-color:${badgeColor}; color:${badgeColor};">${userStatus.replace(/_/g, ' ').toUpperCase()}</div>`
+    ? `<div class="tracker-badge" style="border-color:${badgeColor}; color:${badgeColor};">${badgeText}</div>`
     : '';
 
   // Progress (library mode only)
-  const isManga      = item.media_type === 'manga';
   const totalCount   = isManga ? (item.chapters  || '?') : (item.episodes  || '?');
   const doneCount    = isManga ? (item.chapters_read || 0) : (item.episodes_watched || 0);
   const progressLabel = isManga ? 'Ch' : 'Ep';
@@ -53,7 +81,7 @@ export function createAnimeCard(item, onSelect = null, onAdd = null, isLibraryIt
       ${statusBadge}
       <h3 class="anime-title" title="${titleText.replace(/"/g, '')}">${titleText}</h3>
       <div style="display:flex; justify-content:space-between; align-items:center; font-size:8px; margin-top:auto;">
-        <span>⭐ ${score}</span>
+        ${renderStars(scoreStr)}
         <span style="color:#aaa;">${mediaType}</span>
       </div>
       ${progressHtml}

@@ -83,9 +83,12 @@ export function renderLibrary(root) {
 
     if (filtered.length === 0) {
       const label = currentType === 'manga' ? 'manga' : 'anime';
+      const statusObj = statusFilters[currentType].find(f => f.value === currentFilter);
+      const statusLabel = statusObj ? statusObj.label.toLowerCase() : currentFilter.replace(/_/g, ' ');
+
       libraryContainer.innerHTML = `
         <div style="text-align:center; padding: 40px; font-size: 10px; color: #888;">
-          <p>No ${label} found${currentFilter !== 'all' ? ` with status "${currentFilter.replace(/_/g, ' ')}"` : ''}.</p>
+          <p>No ${label} found${currentFilter !== 'all' ? ` with status "${statusLabel}"` : ''}.</p>
           ${ofType.length === 0 ? `<p style="margin-top:10px;">Go to <strong>Browse</strong> and switch to ${label} mode to add some!</p>` : ''}
         </div>
       `;
@@ -159,8 +162,8 @@ function showManageAnimeModal(item, refreshCallback) {
     </div>
 
     <div class="nes-field" style="margin-bottom:15px;">
-      <label>Your Rating (0–10)</label>
-      <input type="number" id="edit_rating" class="nes-input is-dark" value="${item.user_rating || 0}" min="0" max="10" style="margin-top:8px;" />
+      <label>Your Rating (0.0–10.0)</label>
+      <input type="number" id="edit_rating" class="nes-input is-dark" value="${(item.user_rating || 0).toFixed(1)}" step="0.1" min="0" max="10" style="margin-top:8px;" />
     </div>
 
     <div class="nes-field" style="margin-bottom:20px;">
@@ -176,12 +179,12 @@ function showManageAnimeModal(item, refreshCallback) {
 
   showModal(`Manage: ${title}`, html, () => {
     const newStatus = document.getElementById('edit_status')?.value;
-    const newRating = parseInt(document.getElementById('edit_rating')?.value, 10);
+    const newRating = parseFloat(document.getElementById('edit_rating')?.value) || 0;
     const newNotes  = document.getElementById('edit_notes')?.value || '';
 
     const updates = {
       user_status: newStatus,
-      user_rating: isNaN(newRating) ? 0 : Math.min(10, Math.max(0, newRating)),
+      user_rating: isNaN(newRating) ? 0 : Math.round(Math.min(10, Math.max(0, newRating)) * 10) / 10,
       notes: newNotes,
     };
 
@@ -266,8 +269,8 @@ function showManageMangaModal(item, refreshCallback) {
     </div>
 
     <div class="nes-field" style="margin-bottom:15px;">
-      <label>Your Rating (0–10)</label>
-      <input type="number" id="edit_rating" class="nes-input is-dark" value="${item.user_rating || 0}" min="0" max="10" style="margin-top:8px;" />
+      <label>Your Rating (0.0–10.0)</label>
+      <input type="number" id="edit_rating" class="nes-input is-dark" value="${(item.user_rating || 0).toFixed(1)}" step="0.1" min="0" max="10" style="margin-top:8px;" />
     </div>
 
     <div class="nes-field" style="margin-bottom:20px;">
@@ -285,7 +288,7 @@ function showManageMangaModal(item, refreshCallback) {
     const newStatus  = document.getElementById('edit_status')?.value;
     const newChaps   = parseInt(document.getElementById('edit_chapters')?.value, 10) || 0;
     const newVols    = parseInt(document.getElementById('edit_volumes')?.value,  10) || 0;
-    const newRating  = parseInt(document.getElementById('edit_rating')?.value,   10);
+    const newRating  = parseFloat(document.getElementById('edit_rating')?.value) || 0;
     const newNotes   = document.getElementById('edit_notes')?.value || '';
 
     const updates = {
@@ -293,7 +296,7 @@ function showManageMangaModal(item, refreshCallback) {
       chapters_read: Math.max(0, newChaps),
       volumes_read:  Math.max(0, newVols),
       episodes_watched: Math.max(0, newChaps),
-      user_rating:   isNaN(newRating) ? 0 : Math.min(10, Math.max(0, newRating)),
+      user_rating:   isNaN(newRating) ? 0 : Math.round(Math.min(10, Math.max(0, newRating)) * 10) / 10,
       notes:         newNotes,
     };
 

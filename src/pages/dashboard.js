@@ -31,14 +31,30 @@ function getStatusLabel(userStatus, mediaType) {
     || (userStatus || '').replace(/_/g, ' ');
 }
 
+function renderStarsSmall(rating) {
+  const r = parseFloat(rating);
+  if (isNaN(r) || r <= 0) return '';
+  const percentage = Math.min(100, Math.max(0, (r / 10) * 100));
+  return `
+    <div style="display:flex; align-items:center; justify-content:center; margin-top:4px;">
+      <div style="display:inline-block; position:relative; color:#333; font-size:9px; line-height:1; letter-spacing:1px; text-shadow: 1px 1px 0px #000;">
+        ★★★★★
+        <div style="position:absolute; top:0; left:0; width:${percentage}%; overflow:hidden; color:#ffb400; white-space:nowrap; text-shadow: 1px 1px 0px #8a6d00;">
+          ★★★★★
+        </div>
+      </div>
+      <span style="margin-left:4px; font-size:7px; font-weight:bold; color:var(--pixel-amber);">${r.toFixed(1)}</span>
+    </div>
+  `;
+}
+
 function buildRecentRow(items, mediaType) {
   if (items.length === 0) return '';
   return items.map(item => {
     const label = getStatusLabel(item.user_status, mediaType);
     const color = STATUS_COLORS[item.user_status] || '#fff';
-    const dest  = mediaType === 'anime'
-      ? `window.location.hash='#/library'`
-      : `window.location.hash='#/library'`;
+    const rating = (item.user_rating > 0) ? item.user_rating : item.score;
+    const dest  = `window.location.hash='#/library'`;
     return `
       <div style="flex-shrink:0; width:120px; cursor:pointer; text-align:center;" onclick="${dest}">
         <div style="position:relative;">
@@ -48,6 +64,7 @@ function buildRecentRow(items, mediaType) {
           </div>
         </div>
         <p style="font-size:7px; margin:5px 0 0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:120px; color:#ccc;">${item.title_english || item.title}</p>
+        ${renderStarsSmall(rating)}
       </div>`;
   }).join('');
 }
