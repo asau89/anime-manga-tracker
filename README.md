@@ -57,6 +57,3 @@ ollama pull llama3.2:1b
 npm run dev
 ```
 Navigate to `http://localhost:3000` in your browser. Ensure your Ollama client is active in the background for the Advisor to connect!
-
-## 📜 License
-This project is licensed under the MIT License.
