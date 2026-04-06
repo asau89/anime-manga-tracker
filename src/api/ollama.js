@@ -1,5 +1,8 @@
 const BASE_URL = 'http://localhost:11434/api';
 
+// Cache the discovered model name so we don't fetch it on every message
+let cachedModel = null;
+
 export async function checkConnection() {
   try {
     const res = await fetch(`${BASE_URL}/tags`);
@@ -20,30 +23,70 @@ export async function getAvailableModels() {
   }
 }
 
-export async function chatWithAdvisor(message, history = [], jikanContext = null) {
+/**
+ * Returns the best available model name, caching the result so
+ * we don't hit the API on every single chat message.
+ */
+export async function getModelName() {
+  if (cachedModel) return cachedModel;
   const models = await getAvailableModels();
   if (models.length === 0) {
-    throw new Error('No Ollama models found installed. Please run "ollama pull qwen:0.5b" (or another model) in your terminal.');
+    throw new Error('No Ollama models found. Please run "ollama pull qwen2.5:1.5b" in your terminal.');
   }
-  
-  // Try to find a qwen model, otherwise use the first one available
-  const modelToUse = models.find(m => m.includes('qwen')) || models[0];
+  // Use llama3.2:latest as the primary model, fall back if not installed
+  cachedModel =
+    models.find(m => m === 'llama3.2:latest') ||
+    models.find(m => m.startsWith('llama3.2')) ||
+    models.find(m => m.includes('llama')) ||
+    models.find(m => m.includes('qwen')) ||
+    models[0];
+  return cachedModel;
+}
 
-  let systemPrompt = `You are a retro-styled AI Anime/Manga Advisor NPC inside the 'AnimeTracker OS'. 
-Your primary goal is to be the ultimate otaku recommender. Follow these strict rules:
+/**
+ * Warm-up: sends a 1-token request so Ollama loads the model into GPU/RAM
+ * BEFORE the user actually types their first message. Fire-and-forget.
+ */
+export async function warmUpModel() {
+  try {
+    const model = await getModelName();
+    await fetch(`${BASE_URL}/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model,
+        messages: [{ role: 'user', content: 'hi' }],
+        stream: false,
+        keep_alive: '30m',      // Keep model in memory for 30 minutes
+        options: { num_predict: 1 }  // Only generate 1 token — instant
+      })
+    });
+    console.log(`[Ollama] Model "${model}" pre-loaded into memory.`);
+  } catch (e) {
+    // Best-effort — silently fail, the real request will still work
+  }
+}
+
+const SYSTEM_PROMPT = `You are a retro-styled AI Anime/Manga Advisor NPC inside the 'AnimeTracker OS'. Your primary goal is to be the ultimate otaku recommender. Follow these strict rules:
 1. Act like a helpful, slightly nerdy 8-bit RPG merchant who specializes in anime and manga.
-2. ALWAYS provide the Title, a brief 1-2 sentence pitch, and EXACTLY WHY they would like it.
-3. If the user provides their Library Context, you MUST analyze their highest-rated shows and use them to justify your recommendations (e.g., "Since you rated Death Note a 10/10, you might enjoy...").
+2. ALWAYS provide the Title, a brief 1-2 sentence pitch, and EXACTLY WHY they would like it based on their library.
+3. If the user provides Library Context, analyze their highest-rated shows to justify recommendations (e.g., "Since you rated Death Note a 10/10, you might enjoy...").
 4. Keep responses punchy and concise. Use bullet points and relevant emojis (📺, 📖, ⚔️) to format your output cleanly.
 5. Do NOT hallucinate or make up fake anime. If you are unsure, say your "memory crystal is cloudy" and ask for clarification.`;
-  
-  if (jikanContext) {
-    systemPrompt += `\n\nBACKGROUND CONTEXT (Real data from Jikan API, use this to answer the user):\n${jikanContext}`;
-  }
+
+export async function chatWithAdvisor(message, history = [], context = null) {
+  const model = await getModelName();
+
+  const systemContent = context
+    ? `${SYSTEM_PROMPT}\n\nCONTEXT:\n${context}`
+    : SYSTEM_PROMPT;
+
+  // Cap history to last 4 messages (2 turns) to prevent token explosion
+  const trimmedHistory = history.slice(-4);
 
   const messages = [
-    { role: 'system', content: systemPrompt },
-    ...history,
+    { role: 'system', content: systemContent },
+    ...trimmedHistory,
     { role: 'user', content: message }
   ];
 
@@ -52,12 +95,20 @@ Your primary goal is to be the ultimate otaku recommender. Follow these strict r
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: modelToUse,
-        messages: messages,
-        stream: true
+        model,
+        messages,
+        stream: true,
+        keep_alive: '30m',   // Keep hot for the entire session
+        options: {
+          num_ctx: 2048,     // Smaller context window = faster processing
+          num_predict: 400,  // Cap output length (prevents runaway generation)
+          temperature: 0.7,  // Standard creativity
+          top_p: 0.9,
+          repeat_penalty: 1.1
+        }
       })
     });
-    
+
     if (!response.ok) throw new Error('Ollama API error. Is the model installed?');
     return response.body.getReader();
   } catch (error) {

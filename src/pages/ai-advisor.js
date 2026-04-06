@@ -1,4 +1,4 @@
-import { chatWithAdvisor, checkConnection } from '../api/ollama.js';
+import { chatWithAdvisor, checkConnection, warmUpModel, getModelName } from '../api/ollama.js';
 import { getLibrary } from '../store/library.js';
 import { searchAnime } from '../api/jikan.js';
 
@@ -6,7 +6,7 @@ export async function renderAiAdvisor(root) {
   root.innerHTML = `
     <div class="mb-4">
       <h2 style="color: var(--pixel-green);">AI Advisor</h2>
-      <p style="font-size:9px; color:#aaa;">Powered by local Qwen via Ollama. Ask me anything about anime!</p>
+      <p style="font-size:9px; color:#aaa;">Powered by local LLM via Ollama. Ask me anything about anime!</p>
     </div>
 
     <div id="status-bar" class="nes-container is-dark mb-4" style="font-size:9px; padding:10px 15px;">
@@ -50,17 +50,62 @@ export async function renderAiAdvisor(root) {
     return contentSpan;
   }
 
+  // --- Check connection ---
   const connected = await checkConnection();
 
-  if (connected) {
-    statusBar.innerHTML = '<p style="margin:0; color: var(--pixel-green);">✅ STATUS: ONLINE — Qwen node connected.</p>';
-    appendMessage('Advisor', 'Greetings, Player 1! I can see your library. Ask me what to watch, or pick a quick prompt below.', 'var(--pixel-green)');
-    chatInput.disabled = false;
-    chatBtn.disabled = false;
-  } else {
-    statusBar.innerHTML = '<p style="margin:0; color: #ff4444;">❌ STATUS: OFFLINE — Cannot reach Ollama at localhost:11434. Start Ollama and run your Qwen model.</p>';
-    appendMessage('System', 'Connection failed. Please run: ollama run qwen:3.5-9b\nThen reload this page.', '#ff4444');
+  if (!connected) {
+    statusBar.innerHTML = '<p style="margin:0; color: #ff4444;">❌ STATUS: OFFLINE — Cannot reach Ollama at localhost:11434. Start Ollama first.</p>';
+    appendMessage('System', 'Connection failed. Please start Ollama and refresh the page.', '#ff4444');
     return;
+  }
+
+  // Get model name and start warm-up simultaneously — don't block the UI
+  const [modelName] = await Promise.all([
+    getModelName().catch(() => 'unknown'),
+    warmUpModel()   // fire-and-forget, runs in background
+  ]);
+
+  statusBar.innerHTML = `<p style="margin:0; color: var(--pixel-green);">✅ STATUS: ONLINE — Model: <strong style="color:var(--pixel-yellow);">${modelName}</strong> — Warming up, first reply may be slightly slower.</p>`;
+  appendMessage('Advisor', 'Greetings, Player 1! My neural circuits are warming up. Ask me what to watch, or pick a quick prompt below.', 'var(--pixel-green)');
+  chatInput.disabled = false;
+  chatBtn.disabled = false;
+
+  // Helper: build a tiny library summary string
+  function buildLibrarySummary() {
+    const library = getLibrary();
+    const top5 = [...library]
+      .sort((a, b) => (b.user_rating || 0) - (a.user_rating || 0))
+      .slice(0, 5);
+    return top5.length > 0
+      ? top5.map(i => `${i.title}[${i.user_status}]${i.user_rating}/10`).join(', ')
+      : 'empty';
+  }
+
+  // Helper: fetch Jikan context with a hard timeout so it never blocks the LLM call
+  async function fetchJikanContext(text) {
+    try {
+      // Strip common stop words to get meaningful keywords
+      const keywords = text
+        .replace(/\b(recommend|watch|anime|manga|similar|like|what|should|i|next|me|a|an|the|is|are|for|my|give|some|any|good|great|best)\b/gi, '')
+        .trim();
+      if (keywords.length < 3) return '';
+
+      // Race the Jikan search against a 2-second timeout
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('timeout')), 2000)
+      );
+      const searchPromise = searchAnime(keywords);
+      const searchRes = await Promise.race([searchPromise, timeoutPromise]);
+
+      if (!searchRes?.data?.length) return '';
+      const top3 = searchRes.data.slice(0, 3);
+      return '--- JIKAN DATA ---\n' +
+        top3.map(a =>
+          `${a.title_english || a.title} | Score:${a.score} | ${(a.genres || []).map(g => g.name).join('/')} | ${(a.synopsis || '').substring(0, 200)}`
+        ).join('\n');
+    } catch {
+      return ''; // Jikan is always best-effort
+    }
   }
 
   async function handleSend(overrideText = null) {
@@ -87,37 +132,14 @@ export async function renderAiAdvisor(root) {
       }
     }, 1000);
 
-    // --- API-Driven RAG ---
-    let jikanContext = '';
-    try {
-      // Extract potential anime name from prompt keywords
-      const keywords = text.replace(/recommend|watch|anime|manga|similar to|like|what|should|I|next|me|a|an|the/gi, '').trim();
-      if (keywords.length > 2) {
-        const searchRes = await searchAnime(keywords);
-        if (searchRes?.data?.length > 0) {
-          const top3 = searchRes.data.slice(0, 3);
-          jikanContext = '--- RELEVANT JIKAN DATA ---\n' +
-            top3.map(a =>
-              `Title: ${a.title_english || a.title}\nScore: ${a.score}\nGenres: ${(a.genres || []).map(g => g.name).join(', ')}\nSynopsis: ${(a.synopsis || '').substring(0, 400)}...`
-            ).join('\n\n');
-        }
-      }
-    } catch (e) {
-      // RAG is best-effort, don't fail on it
-    }
+    // --- Build context in parallel with (not before) the LLM setup ---
+    // Jikan search runs concurrently; we cap it at 2s so it never delays Ollama
+    const jikanPromise = fetchJikanContext(text);
+    const libSummary = buildLibrarySummary();
 
-    // For 3-5 second response times on heavy 9B models, the prompt must be incredibly tiny.
-    const library = getLibrary();
-    // Only send the Absolute Top 5 highest rated shows to keep token processing under 200 tokens.
-    const topLibrary = [...library]
-      .sort((a, b) => (b.user_rating || 0) - (a.user_rating || 0))
-      .slice(0, 5);
-
-    const libSummary = topLibrary.length > 0
-      ? topLibrary.map(i => `${i.title} [${i.user_status}] Rating:${i.user_rating}/10`).join(', ')
-      : 'Empty library.';
-
-    const fullContext = `--- USER TOP 5 LIBRARY CONTEXT ---\n${libSummary}\n\n${jikanContext}`;
+    // Wait for Jikan (already capped at 2s), then fire LLM
+    const jikanContext = await jikanPromise;
+    const fullContext = `--- USER TOP 5 LIBRARY ---\n${libSummary}\n\n${jikanContext}`.trim();
 
     try {
       const reader = await chatWithAdvisor(text, history, fullContext);
@@ -135,36 +157,34 @@ export async function renderAiAdvisor(root) {
           let json;
           try {
             json = JSON.parse(line);
-            if (json.error) {
-              throw new Error(json.error);
-            }
+            if (json.error) throw new Error(json.error);
             if (json.message?.content) {
-              // Now we have actual text, stop the timer and clear the thinking message once
               if (!hasStartedStreaming) {
                 hasStartedStreaming = true;
                 clearInterval(thinkingTimer);
                 thinkingNode.textContent = '';
               }
               fullResponse += json.message.content;
-              
-              // Basic retro Markdown formatting
-              let formatted = fullResponse
+
+              // Retro markdown formatting
+              const formatted = fullResponse
                 .replace(/\*\*(.*?)\*\*/g, '<strong style="color:var(--pixel-yellow);">$1</strong>')
                 .replace(/\*(.*?)\*/g, '<em>$1</em>')
                 .replace(/\n\s*-\s/g, '<br/>• ');
-                
+
               thinkingNode.innerHTML = formatted;
               chatBox.scrollTop = chatBox.scrollHeight;
             }
-          } catch (err) { 
-            // Only throw if it's an API-level error JSON, ignore JSON parse chunk errors
+          } catch (err) {
             if (json && err.message === json.error) throw err;
           }
         }
       }
 
+      // Only keep last 4 messages in history (prevents token explosion)
       history.push({ role: 'user', content: text });
       history.push({ role: 'assistant', content: fullResponse });
+      if (history.length > 8) history = history.slice(-8);
 
     } catch (e) {
       clearInterval(thinkingTimer);
