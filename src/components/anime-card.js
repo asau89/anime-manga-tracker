@@ -61,7 +61,7 @@ export function createAnimeCard(item, onSelect = null, onAdd = null, isLibraryIt
   // Progress (library mode only)
   const totalCount   = isManga ? (item.chapters  || '?') : (item.episodes  || '?');
   const doneCount    = isManga ? (item.chapters_read || 0) : (item.episodes_watched || 0);
-  const progressLabel = isManga ? 'Ch' : 'Ep';
+  const progressLabel = isManga ? 'Chapter' : 'Ep';
   const progressPct  = (totalCount !== '?' && totalCount > 0)
     ? Math.min(100, Math.round((doneCount / totalCount) * 100))
     : null;
