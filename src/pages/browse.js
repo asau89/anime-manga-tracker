@@ -1,11 +1,13 @@
 import { searchAnime, getTopAnime, getSeasonNow, getAnimeById } from '../api/jikan.js';
-import { searchMangaMU, getTopMangaMU, getTopManhwaMU, getMangaByIdMU } from '../api/mangaupdates.js';
+import { searchMangaAL, getTopMangaAL, getTopManhwaAL, getMangaByIdAL } from '../api/anilist.js';
 import { createAnimeCard } from '../components/anime-card.js';
 import { addToLibrary, isInLibrary } from '../store/library.js';
 import { showToast } from '../components/toast.js';
 import { showModal } from '../components/modal.js';
 
 let currentMode = 'anime'; // 'anime' | 'manga'
+let currentPage = 1;
+let currentLoader = null; // stores the current data-loading function for Load More
 
 export async function renderBrowse(root) {
   root.innerHTML = `
@@ -40,7 +42,7 @@ export async function renderBrowse(root) {
     document.getElementById('mode-manga').className = `nes-btn ${mode === 'manga' ? 'is-primary' : ''}`;
     searchInput.placeholder = mode === 'anime'
       ? 'Search anime title...'
-      : 'Search manga/manhwa title (via MangaUpdates)...';
+      : 'Search manga/manhwa title...';
     buildQuickTabs(mode);
   };
 
@@ -70,39 +72,56 @@ export async function renderBrowse(root) {
     }
   };
 
-  // ── Render card grid ──────────────────────────────────────────
-  const renderItems = (items, mediaType = 'anime') => {
-    resultsContainer.innerHTML = '';
+  // ── Render card grid (append mode for pagination) ─────────────
+  const renderItems = (items, mediaType = 'anime', append = false) => {
+    if (!append) resultsContainer.innerHTML = '';
+
+    // Remove existing Load More button if re-rendering
+    document.getElementById('load-more-btn')?.remove();
+
     if (!items || items.length === 0) {
-      resultsContainer.innerHTML = '<p style="font-size:10px;">No results found.</p>';
+      if (!append) resultsContainer.innerHTML = '<p style="font-size:10px;">No results found.</p>';
       return;
     }
 
-    const grid = document.createElement('div');
-    grid.className = 'card-grid';
+    let grid = resultsContainer.querySelector('.card-grid');
+    if (!grid || !append) {
+      grid = document.createElement('div');
+      grid.className = 'card-grid';
+      resultsContainer.appendChild(grid);
+    }
 
     items.forEach(item => {
       item.media_type = mediaType;
       const inLib = isInLibrary(item.mal_id, mediaType);
-
       const card = createAnimeCard(
         item,
         () => showDetails(item, mediaType),
         inLib ? null : (i) => promptAddToLibrary(i, mediaType),
         false
       );
-
       if (inLib) {
         const badge = document.createElement('div');
         badge.style.cssText = 'position:absolute;top:6px;right:6px;background:#006600;color:#fff;font-size:7px;padding:3px 6px;border:2px solid #00ff41;';
         badge.textContent = '✓ SAVED';
         card.appendChild(badge);
       }
-
       grid.appendChild(card);
     });
 
-    resultsContainer.appendChild(grid);
+    // Add Load More button after the grid if we got a full page
+    if (items.length >= 20 && currentLoader) {
+      const lmBtn = document.createElement('button');
+      lmBtn.id = 'load-more-btn';
+      lmBtn.className = 'nes-btn is-primary';
+      lmBtn.style.cssText = 'display:block; margin:20px auto 0; font-size:10px;';
+      lmBtn.textContent = '▼ Load More';
+      lmBtn.onclick = () => {
+        currentPage++;
+        currentLoader(true);
+      };
+      resultsContainer.appendChild(lmBtn);
+    }
   };
 
   // ── Data loaders ──────────────────────────────────────────────
@@ -110,40 +129,46 @@ export async function renderBrowse(root) {
     resultsContainer.innerHTML = `<p class="nes-text is-error" style="font-size:10px;">${msg}</p>`;
   };
 
-  const loadSeasonal = async () => {
-    resultsContainer.innerHTML = '<p style="font-size:10px;">Loading seasonal anime...</p>';
-    try { renderItems((await getSeasonNow()).data, 'anime'); }
+  const loadSeasonal = async (append = false) => {
+    currentLoader = loadSeasonal;
+    if (!append) { currentPage = 1; resultsContainer.innerHTML = '<p style="font-size:10px;">Loading seasonal anime...</p>'; }
+    try { renderItems((await getSeasonNow()).data, 'anime', append); }
     catch { showError('Failed to load seasonal anime.'); }
   };
 
-  const loadTopAnime = async () => {
-    resultsContainer.innerHTML = '<p style="font-size:10px;">Loading top anime...</p>';
-    try { renderItems((await getTopAnime()).data, 'anime'); }
+  const loadTopAnime = async (append = false) => {
+    currentLoader = loadTopAnime;
+    if (!append) { currentPage = 1; resultsContainer.innerHTML = '<p style="font-size:10px;">Loading top anime...</p>'; }
+    try { renderItems((await getTopAnime(currentPage)).data, 'anime', append); }
     catch { showError('Failed to load top anime.'); }
   };
 
-  const loadTopManga = async () => {
-    resultsContainer.innerHTML = '<p style="font-size:10px;">Loading top manga from MangaUpdates...</p>';
-    try { renderItems((await getTopMangaMU()).data, 'manga'); }
+  const loadTopManga = async (append = false) => {
+    currentLoader = loadTopManga;
+    if (!append) { currentPage = 1; resultsContainer.innerHTML = '<p style="font-size:10px;">Loading top manga via AniList...</p>'; }
+    try { renderItems((await getTopMangaAL(currentPage)).data, 'manga', append); }
     catch (e) { showError(`Failed to load top manga. (${e.message})`); }
   };
 
-  const loadTopManhwa = async () => {
-    resultsContainer.innerHTML = '<p style="font-size:10px;">Loading top manhwa from MangaUpdates...</p>';
-    try { renderItems((await getTopManhwaMU()).data, 'manga'); }
+  const loadTopManhwa = async (append = false) => {
+    currentLoader = loadTopManhwa;
+    if (!append) { currentPage = 1; resultsContainer.innerHTML = '<p style="font-size:10px;">Loading top manhwa via AniList...</p>'; }
+    try { renderItems((await getTopManhwaAL(currentPage)).data, 'manga', append); }
     catch (e) { showError(`Failed to load top manhwa. (${e.message})`); }
   };
 
   const doSearch = async () => {
     const query = searchInput.value.trim();
     if (!query) return;
-    resultsContainer.innerHTML = `<p style="font-size:10px;">Searching via ${currentMode === 'manga' ? 'MangaUpdates' : 'Jikan'}...</p>`;
+    currentPage = 1;
+    currentLoader = null;
+    resultsContainer.innerHTML = `<p style="font-size:10px;">Searching via ${currentMode === 'manga' ? 'AniList' : 'Jikan'}...</p>`;
     quickTabs.querySelectorAll('button').forEach(b => b.classList.remove('is-success'));
     try {
       if (currentMode === 'anime') {
         renderItems((await searchAnime(query)).data, 'anime');
       } else {
-        renderItems((await searchMangaMU(query)).data, 'manga');
+        renderItems((await searchMangaAL(query)).data, 'manga');
       }
     } catch (e) {
       showError(`Search failed: ${e.message}`);
@@ -186,7 +211,7 @@ async function showDetails(item, mediaType) {
         const res = await getAnimeById(item.mal_id);
         fullItem = res.data || item;
       } else {
-        const res = await getMangaByIdMU(item.mal_id);
+        const res = await getMangaByIdAL(item.mal_id);
         fullItem = res.data || item;
       }
     } catch (_) {}
@@ -197,12 +222,11 @@ async function showDetails(item, mediaType) {
     : `<button id="detail-add-btn" class="nes-btn is-success" style="margin-top:12px; font-size:9px;">+ Add to Library</button>`;
 
   const countLabel = isAnime ? 'Episodes' : 'Chapters';
-  const countValue = isAnime ? (fullItem.episodes || '?') : (fullItem.chapters || fullItem.latest_chapter || '?');
-  const sourceLabel = isAnime ? 'MAL / Jikan' : 'MangaUpdates';
-  const scoreLabel  = isAnime ? 'Score' : 'Rating';
+  const countValue = isAnime ? (fullItem.episodes || '?') : (fullItem.chapters || '?');
+  const sourceLabel = isAnime ? 'Jikan / MAL' : 'AniList';
 
   const authorsHtml = !isAnime && (fullItem.authors || []).length > 0
-    ? `<p><strong>Authors:</strong> ${fullItem.authors.map(a => a.name).join(', ')}</p>`
+    ? `<p><strong>Authors:</strong> ${fullItem.authors.map(a => a.name || a).join(', ')}</p>`
     : '';
 
   const html = `
@@ -214,7 +238,7 @@ async function showDetails(item, mediaType) {
       <div style="flex: 1; min-width: 200px; font-size: 10px; line-height: 2.2;">
         <p><strong>Type:</strong> ${fullItem.type || (isAnime ? 'TV' : 'Manga')}</p>
         <p><strong>${countLabel}:</strong> ${countValue}</p>
-        <p><strong>${scoreLabel}:</strong> ${fullItem.score || 'N/A'}</p>
+        <p><strong>Score:</strong> ${fullItem.score || 'N/A'}</p>
         <p><strong>Status:</strong> ${fullItem.status || 'Unknown'}</p>
         ${isAnime
           ? `<p><strong>Aired:</strong> ${fullItem.aired?.string || fullItem.year || 'Unknown'}</p>`

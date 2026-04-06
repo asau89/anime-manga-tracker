@@ -17,7 +17,7 @@
 
 ## ✨ Features
 - **🕹️ 8-Bit Pixel Aesthetic**: A stunning nostalgic interface featuring CRT scanline effects, pixel fonts, and CSS-driven retro containers.
-- **📚 Dual Library System**: Distinct tracking pipelines for **Anime** (via Jikan API) and **Manga/Manhwa** (via MangaUpdates API).
+- **📚 Dual Library System**: Distinct tracking pipelines for **Anime** (via Jikan API) and **Manga/Manhwa** (via AniList API).
 - **✅ Detailed Progress Tracking**: Check off individual episodes or chapters. Marking an entire series as "Completed" will intelligently auto-fill your tracker!
 - **🤖 Local AI Advisor (RAG)**: Connects seamlessly to hardware-local LLMs (like `llama3.2:1b` or `qwen2.5`) via Ollama. It dynamically pulls your Top 5 highest-rated shows and feeds them into a custom prompt, delivering instantaneous, highly personalized recommendations as an 8-bit NPC.
 - **🛡️ Privacy-First & Offline**: Your entire library is persisted directly to `window.localStorage`. No cloud accounts, no tracking.
@@ -25,10 +25,10 @@
 ## 🛠️ Tech Stack
 - **Frontend Core**: HTML5, Vanilla JavaScript, CSS Variables.
 - **Styling UI**: [NES.css](https://nostalgic-css.github.io/NES.css/)
-- **Bundler & Proxy**: [Vite](https://vitejs.dev/) with configured CORS proxies for external APIs.
-- **External Data**: 
+- **Bundler**: [Vite](https://vitejs.dev/).
+- **External Data**:
   - [Jikan REST API](https://jikan.moe/) (MyAnimeList unofficial API) for Anime.
-  - [MangaUpdates API](https://api.mangaupdates.com/) for Manga & Manhwa.
+  - [AniList GraphQL API](https://anilist.co/graphiql) for Manga & Manhwa.
 - **AI Integration**: [Ollama](https://ollama.com/) local endpoint (`http://localhost:11434/api/chat`).
 
 ## 🚀 Quick Setup

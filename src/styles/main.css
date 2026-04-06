@@ -279,3 +279,89 @@ a { color: var(--pixel-cyan); }
 ::-webkit-scrollbar-track { background: #111; }
 ::-webkit-scrollbar-thumb { background: #444; border: 1px solid #666; }
 ::-webkit-scrollbar-thumb:hover { background: var(--pixel-cyan); }
+
+/* ===================== Library List View ===================== */
+.lib-list-view {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border: 3px solid #333;
+}
+
+.lib-list-row {
+  display: grid;
+  grid-template-columns: 50px 1fr 120px 80px 120px;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border-bottom: 1px solid #222;
+  transition: background 0.15s;
+}
+
+.lib-list-row:hover { background: rgba(0, 212, 255, 0.05); }
+
+.lib-list-thumb {
+  width: 40px;
+  height: 56px;
+  object-fit: cover;
+  border: 2px solid #333;
+}
+
+.lib-list-title { overflow: hidden; }
+
+.lib-list-progress {
+  font-size: 8px;
+  color: var(--pixel-green);
+  text-align: center;
+}
+
+.lib-list-rating {
+  font-size: 8px;
+  color: var(--pixel-amber);
+  text-align: center;
+}
+
+.lib-list-badge {
+  font-size: 7px;
+  padding: 3px 6px;
+  border: 2px solid;
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* Responsive: hide less important columns on small screens */
+@media (max-width: 600px) {
+  .lib-list-row { grid-template-columns: 50px 1fr 90px; }
+  .lib-list-progress, .lib-list-badge { display: none; }
+}
+
+/* ===================== Random Picker Slot Animation ===================== */
+@keyframes slotSpin {
+  0%   { transform: translateY(-200%); opacity: 0; }
+  40%  { transform: translateY(10%);   opacity: 1; }
+  60%  { transform: translateY(-5%); }
+  75%  { transform: translateY(3%); }
+  85%  { transform: translateY(-2%); }
+  100% { transform: translateY(0);     opacity: 1; }
+}
+
+#slot-text {
+  display: inline-block;
+  font-size: 10px;
+  padding: 0 12px;
+  text-align: center;
+  line-height: 1.5;
+}
+
+/* ===================== Stats Charts ===================== */
+.stat-bar-container {
+  height: 80px;
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+/* ===================== Favorites row gold glow ===================== */
+.fav-card-glow {
+  box-shadow: 0 0 14px rgba(255, 176, 0, 0.5);
+}

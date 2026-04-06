@@ -28,12 +28,18 @@ export async function getAvailableModels() {
  * we don't hit the API on every single chat message.
  */
 export async function getModelName() {
+  // Check if user has a preferred model in settings
+  try {
+    const { getSettings } = await import('../store/settings.js');
+    const settings = getSettings();
+    if (settings.aiModel) { cachedModel = settings.aiModel; return cachedModel; }
+  } catch (_) {}
+
   if (cachedModel) return cachedModel;
   const models = await getAvailableModels();
   if (models.length === 0) {
-    throw new Error('No Ollama models found. Please run "ollama pull qwen2.5:1.5b" in your terminal.');
+    throw new Error('No Ollama models found. Please run "ollama pull llama3.2:latest" in your terminal.');
   }
-  // Use llama3.2:latest as the primary model, fall back if not installed
   cachedModel =
     models.find(m => m === 'llama3.2:latest') ||
     models.find(m => m.startsWith('llama3.2')) ||

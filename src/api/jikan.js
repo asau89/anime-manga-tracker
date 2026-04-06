@@ -55,3 +55,7 @@ export async function getMangaById(id) {
 export async function getSeasonNow() {
   return await fetchJikan(`/seasons/now`);
 }
+
+export async function getTopManhwa(page = 1) {
+  return await fetchJikan(`/top/manga?page=${page}&type=manhwa`);
+}
